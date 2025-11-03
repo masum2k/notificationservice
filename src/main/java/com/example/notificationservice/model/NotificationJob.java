@@ -21,4 +21,6 @@ public class NotificationJob {
     private long notificationTime;
 
     private String status;
+
+    private String userEmail;
 }

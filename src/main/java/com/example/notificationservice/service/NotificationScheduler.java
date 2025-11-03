@@ -18,10 +18,10 @@ public class NotificationScheduler {
     private final NotificationJobRepository notificationJobRepository;
     private final EmailService emailService;
 
-    @Scheduled(fixedRate = 10000)
+    @Scheduled(fixedRate = 10000) //10 saniye
     public void processPendingNotifications() {
 
-        log.info("Zamanlanmış görev çalıştı. Gönderilecek bildirimler kontrol ediliyor...");
+        log.info("Gönderilecek bildirimler kontrol ediliyor...");
 
         List<NotificationJob> jobsToSend = notificationJobRepository
                 .findByStatusAndNotificationTimeLessThanEqual("PENDING", Instant.now().toEpochMilli());
@@ -35,15 +35,22 @@ public class NotificationScheduler {
 
         for (NotificationJob job : jobsToSend) {
             try {
-                String userEmail = "user@example.com";
+                String userEmail = job.getUserEmail();
+
+                if (userEmail == null || userEmail.isBlank()) {
+                    log.error("E-posta adresi boş olduğu için bildirim gönderilemedi (iş ID: {})", job.getId());
+                    job.setStatus("FAILED");
+                    notificationJobRepository.save(job);
+                    continue;
+                }
 
                 emailService.sendEmail(
-                        userEmail,
-                        "Todo Görevi Hatırlatması!",
-                        job.getMessage()
+                        userEmail,  //send to this email
+                        "Todo Görevi Hatırlatması!",   //subject of email is this
+                        job.getMessage()   //text of mail
                 );
 
-                job.setStatus("SENT");
+                job.setStatus("SENT");   //PENDING -> SENT
 
             } catch (Exception e) {
                 log.error("E-posta gönderilirken hata oluştu (iş ID: {}): {}", job.getId(), e.getMessage());

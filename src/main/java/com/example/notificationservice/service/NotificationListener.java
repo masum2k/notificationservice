@@ -24,7 +24,7 @@ public class NotificationListener {
 
         try {
             Instant deadlineInstant = Instant.ofEpochMilli(event.deadline());
-            Instant notificationTimeInstant = deadlineInstant.minus(30, ChronoUnit.SECONDS);
+            Instant notificationTimeInstant = deadlineInstant.minus(30, ChronoUnit.SECONDS);//30 saniye cikariyoruz ki bu sure geldiginde notf gonderelim
 
             if (notificationTimeInstant.isAfter(Instant.now())) {
                 NotificationJob job = new NotificationJob();
@@ -32,12 +32,13 @@ public class NotificationListener {
                 job.setMessage("'" + event.title() + "' başlıklı görevinizin son tarihi yaklaşıyor!");
                 job.setStatus("PENDING");
                 job.setNotificationTime(notificationTimeInstant.toEpochMilli());
+                job.setUserEmail(event.userEmail());
 
                 notificationJobRepository.save(job);
                 log.info("Bildirim işi veritabanına kaydedildi. Gönderim zamanı: {}", notificationTimeInstant);
 
             } else {
-                log.warn("Geçmiş tarihli bir görev (veya 1 günden az kalan) için bildirim oluşturulmadı. Todo ID: {}", event.todoId());
+                log.warn("Geçmiş tarihli bir görev (veya 30 saniyeden az kalan) için bildirim oluşturulmadı. Todo ID: {}", event.todoId());
             }
 
         } catch (Exception e) {

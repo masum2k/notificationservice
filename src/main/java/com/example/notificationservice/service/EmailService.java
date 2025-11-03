@@ -13,9 +13,6 @@ public class EmailService {
 
     private final JavaMailSender javaMailSender;
 
-    /**
-     * E-postayı MailHog'a gönderir.
-     */
     public void sendEmail(String toEmail, String subject, String body) {
 
         try {
@@ -23,8 +20,7 @@ public class EmailService {
 
             SimpleMailMessage message = new SimpleMailMessage();
 
-            // MailHog için 'From' adresinin ne olduğu önemli değildir
-            message.setFrom("noreply@todoapp-demo.com");
+            message.setFrom("noreply@todoapp-demo.com"); //mailhog da gonderenin maili
             message.setTo(toEmail);
             message.setSubject(subject);
             message.setText(body);
