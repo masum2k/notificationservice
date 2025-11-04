@@ -5,9 +5,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NotificationJobRepository extends JpaRepository<NotificationJob, Long> {
 
     List<NotificationJob> findByStatusAndNotificationTimeLessThanEqual(String status, long nowEpochMilli);
+
+    Optional<NotificationJob> findByTodoIdAndStatus(Long todoId, String status);
 }

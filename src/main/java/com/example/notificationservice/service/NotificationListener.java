@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -17,28 +18,49 @@ import java.time.temporal.ChronoUnit;
 public class NotificationListener {
 
     private final NotificationJobRepository notificationJobRepository;
+    private static final String STATUS_PENDING = "PENDING";
 
     @KafkaListener(topics = "todo-events", groupId = "notification-group")
     public void handleTodoEvent(TodoNotificationEvent event) {
         log.info("Kafka'dan yeni olay (event) alındı: {}", event);
 
         try {
+            Optional<NotificationJob> existingJobOpt = notificationJobRepository
+                    .findByTodoIdAndStatus(event.todoId(), STATUS_PENDING);
+
+            if (event.deadline() == null) {
+                existingJobOpt.ifPresent(job -> {
+                    notificationJobRepository.delete(job);
+                    log.info("Todo (ID: {}) için planlanmış bildirim iptal edildi (deadline kaldırıldı).", event.todoId());
+                });
+                return;
+            }
+
             Instant deadlineInstant = Instant.ofEpochMilli(event.deadline());
-            Instant notificationTimeInstant = deadlineInstant.minus(30, ChronoUnit.SECONDS);//30 saniye cikariyoruz ki bu sure geldiginde notf gonderelim
+            Instant notificationTimeInstant = deadlineInstant.minus(30, ChronoUnit.SECONDS);
 
             if (notificationTimeInstant.isAfter(Instant.now())) {
-                NotificationJob job = new NotificationJob();
+
+                // Mevcut işi al, eğer yoksa YENİ bir tane oluştur.
+                NotificationJob job = existingJobOpt.orElseGet(NotificationJob::new);
+
                 job.setTodoId(event.todoId());
                 job.setMessage("'" + event.title() + "' başlıklı görevinizin son tarihi yaklaşıyor!");
-                job.setStatus("PENDING");
+                job.setStatus(STATUS_PENDING);
                 job.setNotificationTime(notificationTimeInstant.toEpochMilli());
                 job.setUserEmail(event.userEmail());
 
                 notificationJobRepository.save(job);
-                log.info("Bildirim işi veritabanına kaydedildi. Gönderim zamanı: {}", notificationTimeInstant);
+
+                if (existingJobOpt.isPresent()) {
+                    log.info("Bildirim işi güncellendi (ID: {}). Yeni gönderim zamanı: {}", job.getId(), notificationTimeInstant);
+                } else {
+                    log.info("Yeni bildirim işi veritabanına kaydedildi. Gönderim zamanı: {}", notificationTimeInstant);
+                }
 
             } else {
-                log.warn("Geçmiş tarihli bir görev (veya 30 saniyeden az kalan) için bildirim oluşturulmadı. Todo ID: {}", event.todoId());
+                log.warn("Geçmiş tarihli bir görev (veya 30 saniyeden az kalan) için bildirim oluşturulmadı/güncellenmedi. Todo ID: {}", event.todoId());
+                existingJobOpt.ifPresent(notificationJobRepository::delete);
             }
 
         } catch (Exception e) {
